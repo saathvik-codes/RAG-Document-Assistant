@@ -1,39 +1,43 @@
-# RAG Document Assistant (Enterprise-Grade Starter)
+# RAG Document Assistant
 
-RAG chatbot for enterprise documents with source-grounded answers, agentic workflow, and scalable deployment.
+Production-oriented RAG assistant for source-grounded enterprise document Q&A.
+
+## What It Does
+
+- Ingests `PDF`, `DOCX`, and `TXT` documents
+- Cleans text and preserves metadata such as source, page, and document type
+- Splits documents with section-aware chunking
+- Builds a FAISS semantic index with HuggingFace embeddings
+- Adds lightweight keyword/BM25-style scoring for hybrid retrieval
+- Generates multiple retrieval query variants
+- Answers only from retrieved context
+- Verifies answers with a hallucination-checking agent
+- Returns source citations, excerpts, retrieval scores, confidence, and diagnostics
+- Persists an index manifest for production observability
+- Exposes FastAPI endpoints and a Streamlit UI
+
+## Architecture
+
+```text
+Upload -> Loader -> Cleaner -> Chunker -> Embeddings -> FAISS Index
+                                                    |
+Question -> Classifier -> Query Variants -> Hybrid Retriever
+                                                    |
+Context -> Answer Agent -> Verifier -> Citations + Confidence
+```
 
 ## Tech Stack
 
 - Python
-- FastAPI (backend API)
-- Streamlit (UI)
+- FastAPI
+- Streamlit
 - LangChain
-- HuggingFace embeddings (`sentence-transformers`)
+- HuggingFace sentence-transformer embeddings
+- Dependency-light hashing embeddings fallback for offline smoke tests
 - FAISS vector database
-- Llama 3 via Ollama
+- Ollama by default
+- Optional hosted LLM providers: OpenAI, Anthropic, Google Gemini
 - Docker / Docker Compose
-
-## Features Implemented
-
-- Document ingestion for `PDF`, `DOCX`, and `TXT`
-- Chunking with overlap and metadata (`source`, `page`, `doc_type`)
-- Section-aware chunking for policy-style documents
-- FAISS indexing with local persistence
-- Grounded retrieval + answer generation
-- Source-aware answers (`Document.pdf (Page X)`)
-- Agentic pipeline:
-  - Query classifier
-  - Query rewriter
-  - Answer generator
-  - Hallucination checker
-- Backend API endpoints:
-  - `GET /health`
-  - `GET /status`
-  - `POST /index`
-  - `POST /ask`
-- Streamlit supports:
-  - Local in-process mode
-  - Backend API mode
 
 ## Project Structure
 
@@ -46,7 +50,11 @@ RAG chatbot for enterprise documents with source-grounded answers, agentic workf
 |   |-- agents.py
 |   |-- config.py
 |   |-- document_ingestion.py
+|   |-- evaluation.py
+|   |-- index_manifest.py
+|   |-- llm.py
 |   |-- pipeline.py
+|   |-- retrieval.py
 |   |-- service.py
 |   `-- vector_store.py
 |-- Dockerfile.backend
@@ -57,9 +65,15 @@ RAG chatbot for enterprise documents with source-grounded answers, agentic workf
 `-- README.md
 ```
 
-## Local Run (Without Docker)
+## API Endpoints
 
-1. Install dependencies:
+- `GET /health` - liveness check
+- `GET /status` - model, embedding, index, and manifest status
+- `POST /index` - upload and index documents
+- `POST /ask` - ask one grounded question
+- `POST /evaluate` - run a batch of questions and return quality metrics
+
+## Local Run
 
 ```powershell
 python -m venv .venv
@@ -68,20 +82,20 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-2. Start Ollama and pull model:
+Start Ollama:
 
 ```powershell
 ollama pull llama3
 ollama serve
 ```
 
-3. Start backend:
+Start backend:
 
 ```powershell
 uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
-4. Start frontend (API mode):
+Start frontend in API mode:
 
 ```powershell
 $env:APP_USE_BACKEND_API="true"
@@ -89,49 +103,102 @@ $env:BACKEND_API_URL="http://localhost:8000"
 streamlit run app.py
 ```
 
-## Docker Run (Recommended)
+## Model Providers
+
+Default local mode:
+
+```env
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=llama3
+```
+
+If your local ML stack cannot import `sentence_transformers`, use the built-in fallback:
+
+```env
+EMBEDDINGS_MODEL_NAME=hash
+```
+
+Hosted provider examples:
+
+```env
+LLM_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=...
+```
+
+```env
+LLM_PROVIDER=anthropic
+ANTHROPIC_MODEL=claude-3-5-haiku-latest
+ANTHROPIC_API_KEY=...
+```
+
+```env
+LLM_PROVIDER=google
+GOOGLE_MODEL=gemini-1.5-flash
+GOOGLE_API_KEY=...
+```
+
+## Docker Run
 
 ```powershell
 docker compose up --build
 ```
 
 Services:
+
 - Streamlit UI: `http://localhost:8501`
 - FastAPI backend: `http://localhost:8000`
 - Ollama: `http://localhost:11434`
 
-Stop:
+## Hosted Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the Render Blueprint flow, production environment variables, smoke tests, and hosted LLM provider setup.
+
+## Production Features Added
+
+- Provider-switchable LLM layer
+- Hybrid semantic + keyword retrieval
+- Source-aware reranking for multi-document collections
+- Multi-query retrieval expansion
+- Deterministic evidence composition for high-precision factual questions
+- Citation objects with excerpts and retrieval scores
+- Answer confidence scoring
+- Strict hallucination verifier
+- Index manifest with document/chunk/source stats
+- Batch evaluation endpoint
+- API contracts suitable for frontend, testing, and monitoring
+
+## Evaluation
+
+Use the included public-source sample documents and eval suite before demos.
+
+Index the two clean PDF documents:
 
 ```powershell
-docker compose down
+curl.exe -s -X POST http://127.0.0.1:8010/index `
+  -F "files=@sample_documents/ai_governance_hourglass_model.pdf" `
+  -F "files=@sample_documents/ml_researcher_ai_ethics_survey.pdf"
 ```
 
-## Environment Variables
+Run the regression eval:
 
-See `.env.example`:
+```powershell
+python scripts/run_eval.py --base-url http://127.0.0.1:8010
+```
 
-- `EMBEDDINGS_MODEL_NAME`
-- `OLLAMA_BASE_URL`
-- `OLLAMA_MODEL`
-- `CHUNK_SIZE`
-- `CHUNK_OVERLAP`
-- `RETRIEVAL_K`
-- `RETRIEVAL_FETCH_K`
-- `RETRIEVAL_LAMBDA_MULT`
-- `MAX_CONTEXT_DOCS`
-- `VECTORSTORE_DIR`
-- `APP_USE_BACKEND_API`
-- `BACKEND_API_URL`
-
-## Credentials / Keys
-
-Default setup needs no external API key (local Ollama + local embeddings).
-
-Optional only if you switch providers:
-- `HUGGINGFACEHUB_API_TOKEN`
-- `OPENAI_API_KEY`
+The suite checks grounded answers, required evidence terms, confidence, verifier status, and refusal behavior for unsupported questions.
 
 ## Interview Positioning
 
-- "RAG for grounding, fine-tuning for style and reasoning."
-- Current build demonstrates grounding + traceability + agentic workflow + deployability.
+This project demonstrates a production RAG architecture, not just a chatbot:
+
+- ingestion and chunking pipeline
+- vector indexing and persistence
+- retrieval quality improvements
+- source-aware reranking
+- grounded answer generation
+- hallucination control
+- deterministic evaluation suite
+- citations and confidence
+- API-first deployment
+- evaluation readiness

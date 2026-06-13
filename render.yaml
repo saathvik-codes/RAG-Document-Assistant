@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: rag-document-assistant-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LLM_PROVIDER
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-3-5-haiku-latest
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GOOGLE_MODEL
+        value: gemini-1.5-flash
+      - key: EMBEDDINGS_MODEL_NAME
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: VECTORSTORE_DIR
+        value: /tmp/rag_index
+      - key: INDEX_MANIFEST_PATH
+        value: /tmp/rag_index/manifest.json
+
+  - type: web
+    name: rag-document-assistant-ui
+    runtime: docker
+    dockerfilePath: ./Dockerfile.frontend
+    plan: starter
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_USE_BACKEND_API
+        value: true
+      - key: BACKEND_API_URL
+        sync: false

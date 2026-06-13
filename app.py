@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from rag_assistant.config import get_settings
 from rag_assistant.pipeline import build_pipeline_from_uploads, try_load_existing_pipeline
 
-load_dotenv()
+load_dotenv(override=True)
 settings = get_settings()
 
 USE_BACKEND_API = os.getenv("APP_USE_BACKEND_API", "false").strip().lower() == "true"
@@ -74,27 +74,57 @@ def _render_history() -> None:
 
 def _format_assistant_message(result: Dict) -> str:
     lines = [result.get("answer", "Not found in document.")]
+    lines.append("")
+    lines.append(f"**Confidence**: `{result.get('confidence', 0.0)}`")
     sources = result.get("sources", [])
     if sources:
         lines.append("")
         lines.append("**Sources**")
         for src in sources:
             lines.append(f"- {src}")
+    citations = result.get("citations", [])
+    if citations:
+        lines.append("")
+        lines.append("**Citation Evidence**")
+        for citation in citations[:5]:
+            lines.append(
+                "- "
+                f"{citation.get('marker')} {citation.get('source')} "
+                f"(Page {citation.get('page')}, score {citation.get('retrieval_score')}) "
+                f"- {citation.get('excerpt')}"
+            )
     lines.append("")
     lines.append(f"_Rewritten query_: `{result.get('rewritten_query', '')}`")
+    query_variants = result.get("query_variants", [])
+    if query_variants:
+        lines.append(f"_Query variants_: `{'; '.join(query_variants)}`")
     lines.append(f"_Verifier passed_: `{result.get('verifier_passed', False)}`")
     return "\n".join(lines)
 
 
 def _format_local_assistant_message(result) -> str:
     lines = [result.answer]
+    lines.append("")
+    lines.append(f"**Confidence**: `{result.confidence}`")
     if result.sources:
         lines.append("")
         lines.append("**Sources**")
         for src in result.sources:
             lines.append(f"- {src}")
+    if result.citations:
+        lines.append("")
+        lines.append("**Citation Evidence**")
+        for citation in result.citations[:5]:
+            lines.append(
+                "- "
+                f"{citation.marker} {citation.source} "
+                f"(Page {citation.page}, score {citation.retrieval_score}) "
+                f"- {citation.excerpt}"
+            )
     lines.append("")
     lines.append(f"_Rewritten query_: `{result.rewritten_query}`")
+    if result.query_variants:
+        lines.append(f"_Query variants_: `{'; '.join(result.query_variants)}`")
     lines.append(f"_Verifier passed_: `{result.verifier_passed}`")
     return "\n".join(lines)
 
@@ -112,7 +142,7 @@ def main() -> None:
 
     st.title("RAG Document Assistant")
     st.caption(
-        "Grounded Q&A for enterprise docs using LangChain + HuggingFace embeddings + FAISS + Llama 3"
+        "Grounded Q&A with hybrid retrieval, citations, confidence scoring, and provider-switchable LLMs"
     )
     _show_mode_banner()
 
@@ -151,13 +181,30 @@ def main() -> None:
             status = _backend_status()
             if status is None:
                 st.error("Backend unreachable. Start FastAPI service and try again.")
-            elif status.get("index_ready"):
-                st.info("RAG pipeline is ready (backend).")
             else:
-                st.info("Build an index to start asking questions.")
+                st.caption(
+                    f"Provider: `{status.get('provider')}` | Model: `{status.get('model')}` | "
+                    f"Embeddings: `{status.get('embeddings_model')}`"
+                )
+                if status.get("index_ready"):
+                    st.info(
+                        "RAG pipeline is ready (backend). "
+                        f"Documents: {status.get('total_documents', 0)}, "
+                        f"Chunks: {status.get('total_chunks', 0)}"
+                    )
+                else:
+                    st.info("Build an index to start asking questions.")
         else:
+            st.caption(
+                f"Provider: `{settings.llm_provider}` | Model: `{settings.ollama_model if settings.llm_provider == 'ollama' else settings.llm_provider}` | "
+                f"Embeddings: `{settings.embeddings_model_name}`"
+            )
             if st.session_state.artifacts:
-                st.info("RAG pipeline is ready.")
+                st.info(
+                    "RAG pipeline is ready. "
+                    f"Documents: {st.session_state.artifacts.total_documents}, "
+                    f"Chunks: {st.session_state.artifacts.total_chunks}"
+                )
             else:
                 st.info("Build an index to start asking questions.")
 

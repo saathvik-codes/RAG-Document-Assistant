@@ -5,3 +5,5 @@ __pycache__
 .env
 .rag_index
 .streamlit
+.pytest_cache
+logs

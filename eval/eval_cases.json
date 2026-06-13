@@ -1,0 +1,69 @@
+[
+  {
+    "id": "governance_layers",
+    "query": "What are the three layers in the hourglass model of organizational AI governance?",
+    "expect_answered": true,
+    "must_include": ["environmental", "organizational", "AI system"]
+  },
+  {
+    "id": "hourglass_metaphor",
+    "query": "What does the hourglass metaphor represent in AI governance?",
+    "expect_answered": true,
+    "must_include": ["governance requirements", "environmental layer", "AI systems", "organizational layer"]
+  },
+  {
+    "id": "organizational_themes",
+    "query": "Which two themes make up the organizational layer of AI governance?",
+    "expect_answered": true,
+    "must_include": ["strategic alignment", "value alignment"]
+  },
+  {
+    "id": "head_of_ai",
+    "query": "What role does the paper assign to a Head of AI?",
+    "expect_answered": true,
+    "must_include": ["AI system development", "operations", "authority", "resources"]
+  },
+  {
+    "id": "survey_count",
+    "query": "How many AI/ML researchers were surveyed?",
+    "expect_answered": true,
+    "must_include": ["524", "AI/ML researchers"]
+  },
+  {
+    "id": "trusted_institutions",
+    "query": "Which institutions did surveyed researchers trust more for shaping AI in the public interest?",
+    "expect_answered": true,
+    "must_include_any": [
+      ["international organizations", "scientific organizations"],
+      ["non-governmental scientific associations", "intergovernmental research organizations"]
+    ]
+  },
+  {
+    "id": "lethal_autonomous_weapons",
+    "query": "How did respondents feel about AI/ML researchers working on lethal autonomous weapons?",
+    "expect_answered": true,
+    "must_include": ["opposed", "lethal autonomous weapons"]
+  },
+  {
+    "id": "ai_safety_priority",
+    "query": "What did the survey find about AI safety research prioritization?",
+    "expect_answered": true,
+    "must_include": ["AI safety", "prioritized"]
+  },
+  {
+    "id": "pre_publication_review",
+    "query": "What pre-publication practice did many respondents support?",
+    "expect_answered": true,
+    "must_include": ["pre-publication review"]
+  },
+  {
+    "id": "negative_capital_france",
+    "query": "What is the capital of France?",
+    "expect_answered": false
+  },
+  {
+    "id": "negative_latest_ipl",
+    "query": "Who won the latest IPL match?",
+    "expect_answered": false
+  }
+]

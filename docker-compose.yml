@@ -35,13 +35,22 @@ services:
       - "8000:8000"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
       - VECTORSTORE_DIR=/data/rag_index
+      - INDEX_MANIFEST_PATH=/data/rag_index/manifest.json
       - EMBEDDINGS_MODEL_NAME=${EMBEDDINGS_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
       - CHUNK_SIZE=${CHUNK_SIZE:-800}
       - CHUNK_OVERLAP=${CHUNK_OVERLAP:-150}
       - RETRIEVAL_K=${RETRIEVAL_K:-4}
+      - RETRIEVAL_FETCH_K=${RETRIEVAL_FETCH_K:-24}
+      - RETRIEVAL_LAMBDA_MULT=${RETRIEVAL_LAMBDA_MULT:-0.35}
       - MAX_CONTEXT_DOCS=${MAX_CONTEXT_DOCS:-5}
+      - MULTI_QUERY_COUNT=${MULTI_QUERY_COUNT:-3}
+      - KEYWORD_RETRIEVAL_K=${KEYWORD_RETRIEVAL_K:-8}
+      - MIN_ANSWER_CONFIDENCE=${MIN_ANSWER_CONFIDENCE:-0.35}
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:-50}
     volumes:
       - rag_index_data:/data
     depends_on:
