@@ -14,9 +14,15 @@ def _contains_all(answer: str, needles: list[str]) -> bool:
     return all(needle.lower() in answer_l for needle in needles)
 
 
+# Mirrors rag_assistant.agents.REFUSAL_ANSWERS - duplicated rather than
+# imported since this script is meant to run as a standalone HTTP client
+# against a deployed instance, without the package necessarily installed.
+REFUSAL_ANSWERS = {"not found in document.", "please ask a question related to the uploaded documents."}
+
+
 def _case_passed(case: dict[str, Any], result: dict[str, Any]) -> tuple[bool, str]:
     answer = str(result.get("answer", ""))
-    answered = answer.strip().lower() != "not found in document."
+    answered = answer.strip().lower() not in REFUSAL_ANSWERS
     if bool(case["expect_answered"]) != answered:
         expected = "answered" if case["expect_answered"] else "not found"
         return False, f"expected {expected}, got: {answer}"

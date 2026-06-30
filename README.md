@@ -2,6 +2,42 @@
 
 Production-oriented RAG assistant for source-grounded enterprise document Q&A.
 
+## Verified results
+
+Re-run locally (Ollama `llama3.1:8b`, hashing-embeddings fallback) rather
+than asserted:
+
+- **16/16** automated tests pass (`pytest tests/`)
+- **11/11** eval cases pass (`python scripts/run_eval.py`) — citation-grounded
+  answers to in-scope questions, correct refusal on out-of-scope ones
+  (capital of France, latest sports score)
+
+Getting to 11/11 surfaced two real bugs worth naming, since "we ran the
+eval and it passed" is a weaker claim than "here's what broke and what
+fixing it actually looked like":
+- The query classifier had no idea what documents were actually indexed,
+  so it judged relevance on the question's wording alone — two legitimate,
+  in-scope questions ("What does the hourglass metaphor represent?", "How
+  did respondents feel about lethal autonomous weapons?") got misclassified
+  as out-of-scope and refused. Fix: the classifier prompt now includes the
+  actual indexed source filenames, so it has something real to judge
+  relevance against (`rag_assistant/agents.py`).
+- The eval harness checked the answer against a single hardcoded refusal
+  string (`"not found in document."`), but the classifier's refusal path
+  returns a different sentinel (`"Please ask a question related to the
+  uploaded documents."`) — so both negative test cases (questions that
+  *should* be refused) were failing even though the system was behaving
+  correctly. Same bug existed in the `/evaluate` endpoint's summary stats.
+  Fixed by centralizing both refusal sentinels in one place
+  (`rag_assistant.agents.REFUSAL_ANSWERS`) instead of three separate
+  hardcoded string literals that had drifted out of sync.
+
+No hosted live demo: this isn't a static dashboard, it's a real inference
+API, and Ollama on free-tier CPU hosting is too slow to be a usable demo —
+running a hosted LLM provider (OpenAI/Anthropic/Gemini) instead is one env
+var away (`LLM_PROVIDER`, see below) but needs a paid API key. Runs fully
+locally via Docker Compose with no API key at all.
+
 ## What It Does
 
 - Ingests `PDF`, `DOCX`, and `TXT` documents

@@ -12,6 +12,17 @@ from rag_assistant.config import Settings
 from rag_assistant.llm import build_chat_model
 
 
+# The two sentinel "no answer" strings RAGResult.answer can be: one for
+# "retrieved context but couldn't ground an answer in it", one for
+# "classified out of scope before retrieval even ran". Anything that
+# checks "did this actually answer the question" needs to recognize both -
+# checking only the first one undercounts refusals and silently fails
+# negative test cases that exercise the classifier path instead.
+NOT_FOUND_ANSWER = "Not found in document."
+OUT_OF_SCOPE_ANSWER = "Please ask a question related to the uploaded documents."
+REFUSAL_ANSWERS = {NOT_FOUND_ANSWER.lower(), OUT_OF_SCOPE_ANSWER.lower()}
+
+
 STOPWORDS = {
     "a",
     "an",
@@ -52,9 +63,11 @@ ANSWER_STOPWORDS = STOPWORDS | {
 
 CLASSIFIER_PROMPT = ChatPromptTemplate.from_template(
     """You are a strict query classifier for enterprise document QA.
+The uploaded document collection covers these sources: {document_sources}
+
 Classify the user query into one label:
-- IN_SCOPE: the query could be answered from uploaded documents.
-- OUT_OF_SCOPE: casual chat, opinions, or requests not tied to uploaded documents.
+- IN_SCOPE: the query is plausibly answerable from the topics covered by those documents.
+- OUT_OF_SCOPE: casual chat, opinions, or facts unrelated to those documents (e.g. current events, general trivia).
 
 Return only one token: IN_SCOPE or OUT_OF_SCOPE.
 Query: {query}
@@ -181,8 +194,15 @@ class AgenticRAGPipeline:
             )
         return citations
 
+    def _document_sources(self) -> str:
+        chunks = getattr(self.retriever, "chunks", None) or []
+        sources = sorted({str(doc.metadata.get("source", "")) for doc in chunks if doc.metadata.get("source")})
+        return ", ".join(sources) if sources else "the uploaded documents"
+
     def _classify_query(self, query: str) -> str:
-        raw = (CLASSIFIER_PROMPT | self.llm | self.parser).invoke({"query": query}).strip()
+        raw = (CLASSIFIER_PROMPT | self.llm | self.parser).invoke(
+            {"query": query, "document_sources": self._document_sources()}
+        ).strip()
         label = raw.split()[0].upper() if raw else "IN_SCOPE"
         if "OUT_OF_SCOPE" in label:
             return "OUT_OF_SCOPE"
